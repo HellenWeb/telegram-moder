@@ -24,30 +24,23 @@ async def ban(message: types.Message):
 """Report Command"""
 
 
-@dp.message_handler(commands=["report"])
+@dp.message_handler(lambda message: message.text.startswith("/report"))
 async def report(message: types.Message):
     if not message.reply_to_message:
         await message.answer(f"Message should be forwarded")
-    await message.bot.delete_message(message.chat.id, message.message_id)
+        await message.bot.delete_message(message.chat.id, message.message_id)
     if message.reply_to_message:
-        if db.show_info(message.from_user.id):
-            db.update_report(
-                message.from_user.id, db.show_info(message.from_user.id)[2] + 1
-            )
-            await message.answer(
-                f"Total reports: {db.show_info(message.from_user.id)[2]}"
-            )
-            if db.show_info(message.from_user.id)[2] == 3:
-                await message.bot.kick_chat_member(
-                    chat_id=message.chat.id,
-                    user_id=message.reply_to_message.from_user.id,
+        mark = types.InlineKeyboardMarkup(row_width=1)
+        mark.add(types.InlineKeyboardButton(text="Delete", callback_data="delete"))
+        admin = await bot.get_chat_administrators(message.chat.id)
+        for i in admin:
+            if i.status == "creator":
+                await bot.send_message(
+                    chat_id=i.user.id,
+                    text=f"Report on - <strong>{message.reply_to_message.from_user.first_name}</strong>\nAuthor - <strong>{message.from_user.first_name}</strong>\nMessage - <strong>{message.text[7:]}</strong>\n\nCreated: @moder_git_bot",
+                    parse_mode="html",
+                    reply_markup=mark,
                 )
-                await message.answer("User banned")
-        else:
-            db.add_report(message.from_user.id)
-            await message.answer(
-                f"Total reports: {db.show_info(message.from_user.id)[2]}"
-            )
 
 
 """Command <Start>"""
@@ -89,6 +82,11 @@ async def clear(message: types.Message):
 
 
 # Callback
+
+
+@dp.callback_query_handler(lambda t: t.data == "delete")
+async def delete(callback: types.CallbackQuery):
+    await callback.message.delete()
 
 
 @dp.callback_query_handler(lambda m: m.data == "help")
